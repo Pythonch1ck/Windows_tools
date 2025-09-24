@@ -1,129 +1,106 @@
-# Set-InTechProfile.ps1
-# Назначение: создать локального админа InTech_Admin, сделать InTech обычным пользователем,
-# и запретить запись в C:\Users\InTech\Desktop
-# Запускать от администратора.
+# Setup User Profiles Script
+# Requires Administrator privileges
 
-$logFile = "C:\Windows\Temp\Set-InTechProfile.log"
-function Log {
-    param([string]$msg)
-    $t = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-    $line = "$t`t$msg"
-    $line | Out-File -FilePath $logFile -Encoding UTF8 -Append
-    Write-Output $line
+param(
+    [string]$NewAdminPassword = "123456@gl"
+)
+
+Write-Host "Starting user profile configuration..." -ForegroundColor Green
+
+# Проверка прав администратора
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Host "This script must be run as Administrator!" -ForegroundColor Red
+    exit 1
 }
 
-Try {
-    Log "=== START ==="
-
-    $adminName = "InTech_Admin"
-    $adminPassPlain = "123456@gl"
-    $userName = "InTech"
-    $desktopPath = "C:\Users\$userName\Desktop"
-
-    # Проверим, доступен ли модуль LocalAccounts (Get-LocalUser и т.п.)
-    $hasLocalAccounts = (Get-Command -Name Get-LocalUser -ErrorAction SilentlyContinue) -ne $null
-
-    if ($hasLocalAccounts) {
-        Log "Модуль LocalAccounts доступен. Работаем через Get-LocalUser / New-LocalUser."
-        # Создать/проверить аккаунт администратора
-        $securePass = ConvertTo-SecureString $adminPassPlain -AsPlainText -Force
-        $exists = Get-LocalUser -Name $adminName -ErrorAction SilentlyContinue
-        if (-not $exists) {
-            New-LocalUser -Name $adminName -Password $securePass -FullName "InTech Admin" `
-                -Description "Локальная админ-учётка" -PasswordNeverExpires:$true
-            Add-LocalGroupMember -Group "Administrators" -Member $adminName
-            Log "Создана учётка $adminName и добавлена в Administrators."
-        } else {
-            Log "Учётка $adminName уже существует."
-            # Убедимся, что в группе Administrators
-            $isAdmin = Get-LocalGroupMember -Group "Administrators" -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $adminName }
-            if (-not $isAdmin) {
-                Add-LocalGroupMember -Group "Administrators" -Member $adminName
-                Log "Добавил $adminName в группу Administrators."
-            } else {
-                Log "$adminName уже в группе Administrators."
-            }
-        }
-
-        # Сделать InTech обычным пользователем: удалить из Administrators, если там есть
-        $user = Get-LocalUser -Name $userName -ErrorAction SilentlyContinue
-        if ($user) {
-            $member = Get-LocalGroupMember -Group "Administrators" -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $userName }
-            if ($member) {
-                Remove-LocalGroupMember -Group "Administrators" -Member $userName -ErrorAction Stop
-                Log "Пользователь $userName удалён из Administrators (теперь обычный пользователь)."
-            } else {
-                Log "Пользователь $userName не состоит в группе Administrators."
-            }
-        } else {
-            Log "Пользователь $userName не найден на этой машине."
-        }
+try {
+    # 1. Demote School user to standard user
+    Write-Host "Demoting School user to standard user..." -ForegroundColor Yellow
+    $schoolUser = Get-LocalUser -Name "School" -ErrorAction SilentlyContinue
+    if ($schoolUser) {
+        Remove-LocalGroupMember -Group "Administrators" -Member "School" -ErrorAction SilentlyContinue
+        Write-Host "✓ School user demoted to standard user" -ForegroundColor Green
     } else {
-        Log "Модуль LocalAccounts НЕ доступен. Будем использовать net user / net localgroup (совместимость)."
+        Write-Host "! School user not found" -ForegroundColor Yellow
+    }
 
-        # Создать админ-учётку через net user, если её нет
-        $checkAdmin = (net user $adminName 2>$null) -ne $null
-        if (-not $checkAdmin) {
-            net user $adminName $adminPassPlain /add /fullname:"InTech Admin" /passwordreq:yes | Out-Null
-            net localgroup Administrators $adminName /add | Out-Null
-            Log "Создана учётка $adminName (net user) и добавлена в Administrators."
-        } else {
-            Log "Учётка $adminName уже существует (net user)."
-            # Убедимся, что в группе Administrators
-            & net localgroup Administrators | Select-String -Pattern $adminName | Out-Null
-            if ($LASTEXITCODE -ne 0) {
-                net localgroup Administrators $adminName /add | Out-Null
-                Log "Добавил $adminName в группу Administrators (net localgroup)."
-            } else {
-                Log "$adminName уже в Administrators (net localgroup)."
+    # 2. Create new admin user InTech_Admin
+    Write-Host "Creating new admin user InTech_Admin..." -ForegroundColor Yellow
+    $adminUser = Get-LocalUser -Name "InTech_Admin" -ErrorAction SilentlyContinue
+    if (-not $adminUser) {
+        $securePassword = ConvertTo-SecureString $NewAdminPassword -AsPlainText -Force
+        New-LocalUser -Name "InTech_Admin" -Password $securePassword -AccountNeverExpires -PasswordNeverExpires -Description "Administrator account for InTech system"
+        Add-LocalGroupMember -Group "Administrators" -Member "InTech_Admin"
+        Write-Host "✓ Admin user InTech_Admin created" -ForegroundColor Green
+    } else {
+        Write-Host "! Admin user InTech_Admin already exists" -ForegroundColor Yellow
+    }
+
+    # 3. Restrict desktop editing for School user
+    Write-Host "Configuring desktop restrictions for School user..." -ForegroundColor Yellow
+    if ($schoolUser) {
+        # Method 1: Registry modifications
+        $schoolProfilePath = "C:\Users\School\NTUSER.DAT"
+        if (Test-Path $schoolProfilePath) {
+            try {
+                # Load School user registry hive
+                reg load "HKU\School_Temp" $schoolProfilePath 2>$null
+                
+                # Disable saving desktop settings
+                reg add "HKEY_USERS\School_Temp\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" /v NoSaveSettings /t REG_DWORD /d 1 /f 2>$null
+                
+                # Disable wallpaper changes
+                reg add "HKEY_USERS\School_Temp\Software\Microsoft\Windows\CurrentVersion\Policies\ActiveDesktop" /v NoChangingWallpaper /t REG_DWORD /d 1 /f 2>$null
+                
+                # Disable desktop context menu
+                reg add "HKEY_USERS\School_Temp\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" /v NoViewContextMenu /t REG_DWORD /d 1 /f 2>$null
+                
+                # Unload registry hive
+                reg unload "HKU\School_Temp" 2>$null
+                
+                Write-Host "✓ Desktop restrictions applied to School user" -ForegroundColor Green
             }
+            catch {
+                Write-Host "! Could not apply registry restrictions: $($_.Exception.Message)" -ForegroundColor Red
+            }
+        } else {
+            Write-Host "! School user profile not found for registry modifications" -ForegroundColor Yellow
         }
 
-        # Удаляем InTech из админов, если присутствует
-        & net localgroup Administrators | Select-String -Pattern $userName | Out-Null
-        if ($LASTEXITCODE -eq 0) {
-            net localgroup Administrators $userName /delete | Out-Null
-            Log "Пользователь $userName удалён из Administrators (net localgroup)."
-        } else {
-            Log "Пользователь $userName не состоит в Administrators (net localgroup)."
+        # Method 2: File system permissions (optional)
+        $desktopPath = "C:\Users\School\Desktop"
+        if (Test-Path $desktopPath) {
+            try {
+                $acl = Get-Acl $desktopPath
+                $rule = New-Object System.Security.AccessControl.FileSystemAccessRule("School", "Write", "ContainerInherit,ObjectInherit", "None", "Deny")
+                $acl.AddAccessRule($rule)
+                Set-Acl $desktopPath $acl
+                Write-Host "✓ Desktop folder write permissions restricted" -ForegroundColor Green
+            }
+            catch {
+                Write-Host "! Could not set folder permissions: $($_.Exception.Message)" -ForegroundColor Yellow
+            }
         }
     }
 
-    # 3) Запрет редактирования рабочего стола для InTech (NTFS)
-    if (Test-Path $desktopPath) {
-        try {
-            # Удаляем наследование, но сохраняем текущие разрешения как копию
-            icacls $desktopPath /inheritance:d | Out-Null  # /inheritance:d - convert to explicit (preserve) — совместимее
-        } catch {
-            # Если команда вернула ошибку, попробуем /inheritance:r как раньше
-            icacls $desktopPath /inheritance:r | Out-Null
-        }
-
-        # Установим базовые разрешения: Administrators & SYSTEM — полный; Users — чтение/выполнение
-        icacls $desktopPath /grant:r "Administrators:(OI)(CI)F" "SYSTEM:(OI)(CI)F" "Users:(OI)(CI)RX" | Out-Null
-
-        # Установим явный запрет на запись для пользователя InTech
-        # Проверяем, не установлен ли уже deny
-        $acl = (Get-Acl -Path $desktopPath)
-        $denyExists = $false
-        foreach ($ace in $acl.Access) {
-            if ($ace.IdentityReference -like "*\$userName" -and $ace.FileSystemRights.ToString().Contains("Write") -and $ace.AccessControlType -eq "Deny") {
-                $denyExists = $true
-                break
-            }
-        }
-        if (-not $denyExists) {
-            icacls $desktopPath /deny "$userName:(OI)(CI)W" | Out-Null
-            Log "Изменены NTFS-разрешения на $desktopPath: запись запрещена для $userName."
-        } else {
-            Log "Запрет записи для $userName на $desktopPath уже установлен."
-        }
-    } else {
-        Log "Путь $desktopPath не найден. Возможно профиль называется иначе или ещё не создан."
+    # 4. Additional security settings
+    Write-Host "Applying additional security settings..." -ForegroundColor Yellow
+    
+    # Disable School user ability to change password
+    if ($schoolUser) {
+        Set-LocalUser -Name "School" -UserMayChangePassword $false
     }
+    
+    # Ensure admin user cannot change password
+    Set-LocalUser -Name "InTech_Admin" -UserMayChangePassword $false
 
-    Log "=== FINISH ==="
-} Catch {
-    Log "Unhandled error: $_"
-    throw
+    Write-Host "✓ All configurations completed successfully!" -ForegroundColor Green
+    Write-Host "`nSummary:" -ForegroundColor Cyan
+    Write-Host "- School user: Standard user with restricted desktop" -ForegroundColor White
+    Write-Host "- InTech_Admin: Administrator (Password: $NewAdminPassword)" -ForegroundColor White
+    Write-Host "`nNote: Some changes may require logout/login to take effect." -ForegroundColor Yellow
+}
+catch {
+    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
 }
