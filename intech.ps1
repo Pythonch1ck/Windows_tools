@@ -65,6 +65,3 @@ Start-Process "msiexec.exe" -ArgumentList "/i `"$ev3Installer`" /quiet /norestar
 $odtUrl = "https://download.microsoft.com/download/2/0/c/20c4e030-1b7b-4a0b-a49c-4c3e7a5db9cb/officedeploymenttool_16827-20258.exe"
 $odtExe = Join-Path $TMP "officedeploymenttool.exe"
 Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe -UseBasicParsing
-Write-Output "ODT скачан: $odtExe. Запустите его и используйте конфиги для оффлайн Office."
-
-Write-Output "Установка завершена."
