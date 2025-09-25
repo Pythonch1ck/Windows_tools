@@ -1,10 +1,10 @@
 $adminPass = ConvertTo-SecureString "123456@gl" -AsPlainText -Force
 New-LocalUser "InTech_Admin" -Password $adminPass
-Add-LocalGroupMember -Group "Администраторы" -Member "InTech_Admin"
+Add-LocalGroupMember -Group "Administrators" -Member "InTech_Admin"
 
 $userPass = ConvertTo-SecureString "7654321" -AsPlainText -Force
 New-LocalUser "InTech" -Password $userPass
-Add-LocalGroupMember -Group "Пользователи" -Member "InTech"
+Add-LocalGroupMember -Group "Users" -Member "InTech"
 
 $SID = (Get-LocalUser InTech).SID
 $regPath = "Registry::HKEY_USERS\$SID\Software\Microsoft\Windows\CurrentVersion\Policies"
