@@ -1,8 +1,8 @@
-# AutoInstall_All.ps1
+# AutoInstall.ps1
 # Запускать как администратор
 
-# Проверка: админ ли
-If (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+If (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+    [Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Error "Запустите скрипт от имени администратора."
     exit 1
 }
@@ -11,7 +11,6 @@ $ErrorActionPreference = "Stop"
 $TMP = "$env:TEMP\AutoInstall"
 New-Item -Path $TMP -ItemType Directory -Force | Out-Null
 
-# Обновляем winget
 winget source update
 
 # --- Установка пакетов через winget ---
@@ -22,6 +21,7 @@ $wingetList = @(
     "BlenderFoundation.Blender",
     "Ultimaker.Cura",
     "Microsoft.VisualStudio.2022.Community",
+    "Microsoft.VisualStudioCode",
     "7zip.7zip",
     "FreePascalTeam.FreePascal",
     "Bambulab.Bambustudio",
@@ -29,13 +29,19 @@ $wingetList = @(
 )
 
 foreach ($id in $wingetList) {
-    Write-Output "Устанавливаю $id ..."
+    Write-Output "Installed $id ..."
     try {
         winget install -e --id $id --accept-package-agreements --accept-source-agreements -h
     } catch {
-        Write-Warning "Не удалось установить $id"
+        Write-Warning "Not Installed $id"
     }
 }
+
+# --- Anycubic Slicer Next ---
+$anycubicUrl = "https://store.anycubic.com/_next/file/AnycubicSlicerNextSetup-1.2.6.exe"
+$anycubicInstaller = Join-Path $TMP "AnycubicSlicerNext.exe"
+Invoke-WebRequest -Uri $anycubicUrl -OutFile $anycubicInstaller -UseBasicParsing
+Start-Process $anycubicInstaller -ArgumentList "/S" -Wait
 
 # --- Thymio Suite ---
 $thymioUrl = "https://www.thymio.org/wp-content/uploads/2022/11/ThymioSuite-2.3.1-Windows-x86_64.msi"
@@ -60,8 +66,3 @@ $ev3Url = "https://lc-www-live-s.legocdn.com/downloads/EV3/LEGOEducationEV3.msi"
 $ev3Installer = Join-Path $TMP "EV3.msi"
 Invoke-WebRequest -Uri $ev3Url -OutFile $ev3Installer -UseBasicParsing
 Start-Process "msiexec.exe" -ArgumentList "/i `"$ev3Installer`" /quiet /norestart" -Wait
-
-# --- Office Deployment Tool ---
-$odtUrl = "https://download.microsoft.com/download/2/0/c/20c4e030-1b7b-4a0b-a49c-4c3e7a5db9cb/officedeploymenttool_16827-20258.exe"
-$odtExe = Join-Path $TMP "officedeploymenttool.exe"
-Invoke-WebRequest -Uri $odtUrl -OutFile $odtExe -UseBasicParsing
