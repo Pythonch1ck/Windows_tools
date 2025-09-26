@@ -43,8 +43,6 @@ $ghBase = "https://github.com/Pythonch1ck/Windows_tools/raw/main/"
 
 $programs = @(
     @{ Name="Thymio Suite"; File="ThymioSuite.exe"; Args="/S" },
-    @{ Name="Marty the Robot"; File="MartySetup.exe"; Args="/S" },
-    @{ Name="LEGO WeDo 2.0"; File="WeDo.exe"; Args="/S" },
     @{ Name="LEGO Mindstorms EV3"; File="EV3.exe"; Args="/S" }
 )
 
@@ -58,4 +56,5 @@ foreach ($p in $programs) {
 }
 
 Write-Output "Установка завершена."
+
 
