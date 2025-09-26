@@ -36,25 +36,3 @@ foreach ($id in $wingetList) {
         Write-Warning "Не удалось установить $id"
     }
 }
-
-# --- Программы из GitHub ---
-# Укажи свою директорию на GitHub, например: https://github.com/YourUser/Windows_tools/raw/main/
-$ghBase = "https://github.com/Pythonch1ck/Windows_tools/raw/main/"
-
-$programs = @(
-    @{ Name="Thymio Suite"; File="ThymioSuite.exe"; Args="/S" },
-    @{ Name="LEGO Mindstorms EV3"; File="EV3.exe"; Args="/S" }
-)
-
-foreach ($p in $programs) {
-    $url = "$ghBase$($p.File)"
-    $dest = Join-Path $TMP $p.File
-    Write-Output "Скачиваю $($p.Name) из $url ..."
-    Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
-    Write-Output "Устанавливаю $($p.Name) ..."
-    Start-Process $dest -ArgumentList $p.Args -Wait
-}
-
-Write-Output "Установка завершена."
-
-
