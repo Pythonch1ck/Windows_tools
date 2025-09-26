@@ -1,5 +1,5 @@
 # Укажи путь к файлу обоев
-$WallpaperPath = "C:\Windows\System32\Windows_tools\wallpaper.png"
+$WallpaperPath = "C:\Windows_tools\wallpaper.png"
 
 # Проверяем, существует ли файл
 if (-Not (Test-Path $WallpaperPath)) {
