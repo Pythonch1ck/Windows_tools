@@ -9,7 +9,7 @@ function Get-GroupNameBySID {
 $AdminsGroup = Get-GroupNameBySID "S-1-5-32-544"
 $UsersGroup  = Get-GroupNameBySID "S-1-5-32-545"
 
-# Ask user for profile number (English)
+# Ask for profile number in English
 $number = Read-Host "Enter profile number (example: 1, 2, 3...)"
 $userName = "InTech $number"
 
@@ -52,13 +52,9 @@ New-Item -Path "$regPath\Explorer" -Force | Out-Null
 New-ItemProperty -Path "$regPath\Explorer" -Name "NoFileAssociate" -Value 1 -PropertyType DWord -Force
 
 # ======= WALLPAPER SETUP =======
+$wallpaperPath = "C:\Windows\System32\Windows_tools\wallpaper.png"
 
-# Script URL (replace with real repo URL)
-$scriptUrl = "https://raw.githubusercontent.com/YourGitHubUser/YourRepo/main/setup.ps1"
-$wallpaperUrl = ($scriptUrl -replace "setup.ps1","wallpaper.jpg")
-
-$wallpaperPath = "C:\Users\Public\Pictures\InTech_Wallpaper.jpg"
-Invoke-WebRequest -Uri $wallpaperUrl -OutFile $wallpaperPath -UseBasicParsing
-
-reg add "HKU\$SID_User\Control Panel\Desktop" /v Wallpaper /t REG_SZ /d $wallpaperPath /f | Out-Null
-rundll32.exe user32.dll, UpdatePerUserSystemParameters
+if (Test-Path $wallpaperPath) {
+    reg add "HKU\$SID_User\Control Panel\Desktop" /v Wallpaper /t REG_SZ /d $wallpaperPath /f | Out-Null
+    rundll32.exe user32.dll, UpdatePerUserSystemParameters
+}
