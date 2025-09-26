@@ -29,40 +29,32 @@ $wingetList = @(
 )
 
 foreach ($id in $wingetList) {
-    Write-Output "Installed $id ..."
+    Write-Output "Устанавливаю $id ..."
     try {
         winget install -e --id $id --accept-package-agreements --accept-source-agreements -h
     } catch {
-        Write-Warning "Not Installed $id"
+        Write-Warning "Не удалось установить $id"
     }
 }
 
-# --- Anycubic Slicer Next ---
-$anycubicUrl = "https://store.anycubic.com/_next/file/AnycubicSlicerNextSetup-1.2.6.exe"
-$anycubicInstaller = Join-Path $TMP "AnycubicSlicerNext.exe"
-Invoke-WebRequest -Uri $anycubicUrl -OutFile $anycubicInstaller -UseBasicParsing
-Start-Process $anycubicInstaller -ArgumentList "/S" -Wait
+# --- Программы из GitHub ---
+# Укажи свою директорию на GitHub, например: https://github.com/YourUser/Windows_tools/raw/main/
+$ghBase = "https://github.com/Pythonch1ck/Windows_tools/edit/main/"
 
-# --- Thymio Suite ---
-$thymioUrl = "https://www.thymio.org/wp-content/uploads/2022/11/ThymioSuite-2.3.1-Windows-x86_64.msi"
-$thymioInstaller = Join-Path $TMP "ThymioSuite.msi"
-Invoke-WebRequest -Uri $thymioUrl -OutFile $thymioInstaller -UseBasicParsing
-Start-Process "msiexec.exe" -ArgumentList "/i `"$thymioInstaller`" /quiet /norestart" -Wait
+$programs = @(
+    @{ Name="Thymio Suite"; File="ThymioSuite.exe"; Args="/S" },
+    @{ Name="Marty the Robot"; File="MartySetup.exe"; Args="/S" },
+    @{ Name="LEGO WeDo 2.0"; File="WeDo.exe"; Args="/S" },
+    @{ Name="LEGO Mindstorms EV3"; File="EV3.exe"; Args="/S" }
+)
 
-# --- Marty the Robot ---
-$martyUrl = "https://downloads.robotical.io/MartyV2/Windows/MartyV2-1.7.3.exe"
-$martyInstaller = Join-Path $TMP "MartySetup.exe"
-Invoke-WebRequest -Uri $martyUrl -OutFile $martyInstaller -UseBasicParsing
-Start-Process $martyInstaller -ArgumentList "/S" -Wait
+foreach ($p in $programs) {
+    $url = "$ghBase$($p.File)"
+    $dest = Join-Path $TMP $p.File
+    Write-Output "Скачиваю $($p.Name) из $url ..."
+    Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
+    Write-Output "Устанавливаю $($p.Name) ..."
+    Start-Process $dest -ArgumentList $p.Args -Wait
+}
 
-# --- LEGO WeDo 2.0 ---
-$wedoUrl = "https://lc-www-live-s.legocdn.com/downloads/WEDO2/LEGOEducationWeDo2.msi"
-$wedoInstaller = Join-Path $TMP "WeDo.msi"
-Invoke-WebRequest -Uri $wedoUrl -OutFile $wedoInstaller -UseBasicParsing
-Start-Process "msiexec.exe" -ArgumentList "/i `"$wedoInstaller`" /quiet /norestart" -Wait
-
-# --- LEGO Mindstorms EV3 ---
-$ev3Url = "https://lc-www-live-s.legocdn.com/downloads/EV3/LEGOEducationEV3.msi"
-$ev3Installer = Join-Path $TMP "EV3.msi"
-Invoke-WebRequest -Uri $ev3Url -OutFile $ev3Installer -UseBasicParsing
-Start-Process "msiexec.exe" -ArgumentList "/i `"$ev3Installer`" /quiet /norestart" -Wait
+Write-Output "Установка завершена."
