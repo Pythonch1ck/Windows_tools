@@ -39,7 +39,7 @@ foreach ($id in $wingetList) {
 
 # --- Программы из GitHub ---
 # Укажи свою директорию на GitHub, например: https://github.com/YourUser/Windows_tools/raw/main/
-$ghBase = "https://github.com/Pythonch1ck/Windows_tools/edit/main/"
+$ghBase = "https://github.com/Pythonch1ck/Windows_tools/raw/main/"
 
 $programs = @(
     @{ Name="Thymio Suite"; File="ThymioSuite.exe"; Args="/S" },
@@ -58,3 +58,4 @@ foreach ($p in $programs) {
 }
 
 Write-Output "Установка завершена."
+
